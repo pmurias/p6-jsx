@@ -14,4 +14,6 @@ is-deeply jsx <img></img>, ['img'], 'jsx <img></img>';
 
 is-deeply jsx <span><span/><span/></span>, ['span', ['span'], ['span']], 'nested elements';
 
+is-deeply jsx <span>Hello <span>World</span></span>, ['span', "Hello ", ['span', "World"], ], 'raw text';
+
 done-testing;

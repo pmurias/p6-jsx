@@ -31,7 +31,11 @@ sub EXPORT(|) {
         }
 
         token jsx_child {
-            <jsx_element>
+            <jsx_element> | <jsx_text>
+        }
+
+        token jsx_text {
+          <-[{}<>]>+
         }
 
 #
@@ -71,7 +75,15 @@ sub EXPORT(|) {
         }
 
         method jsx_child(Mu $/) {
-            $/.make(atkeyish($/, 'jsx_element').ast);
+            if atkeyish($/, 'jsx_element') {
+              $/.make(atkeyish($/, 'jsx_element').ast);
+            } elsif atkeyish($/, 'jsx_text') {
+              $/.make(atkeyish($/, 'jsx_text').ast);
+            }
+        }
+
+        method jsx_text(Mu $/) {
+            $/.make(QAST::SVal.new(:value($/.Str)));
         }
 
         method jsx_opening_element(Mu $/) {
