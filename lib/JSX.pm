@@ -14,20 +14,24 @@ sub EXPORT(|) {
         }
 
         token jsx_element {
-#            <jsx_opening_element> <jsx_children>? <jsx_closing_element> 
-            <jsx_self_closing_element>
+            <jsx_opening_element> <jsx_child>* <jsx_closing_element>
+            | <jsx_self_closing_element>
         }
 
         token jsx_self_closing_element {
-          '<' <jsx_element_name> '/>'
+            '<' <jsx_element_name> '/>'
         }
 
         token jsx_opening_element {
-          '<' <jsx_element_name> '>'
+            '<' <jsx_element_name> '>'
         }
 
         token jsx_closing_element {
-          '<' <jsx_element_name> '>'
+            '</' <jsx_element_name> '>'
+        }
+
+        token jsx_child {
+            <jsx_element>
         }
 
 #
@@ -54,13 +58,30 @@ sub EXPORT(|) {
         }
 
         method jsx_element(Mu $/) {
-            $/.make(atkeyish($/, 'jsx_self_closing_element').ast);
+            my $type;
+            if atkeyish($/, 'jsx_self_closing_element') {
+               $type = atkeyish($/, 'jsx_self_closing_element').ast;
+            } elsif atkeyish($/, 'jsx_opening_element') {
+               $type = atkeyish($/, 'jsx_opening_element').ast;
+            }
+
+            my $args = nqp::hllize(atkeyish($/, 'jsx_child')).map(*.ast);
+
+            $/.make(QAST::Op.new(:op<call>, :name('&create-element'), $type, |$args));
+        }
+
+        method jsx_child(Mu $/) {
+            $/.make(atkeyish($/, 'jsx_element').ast);
+        }
+
+        method jsx_opening_element(Mu $/) {
+            my $element-name = atkeyish($/, 'jsx_element_name').Str;
+            $/.make(QAST::SVal.new(:value($element-name)));
         }
 
         method jsx_self_closing_element(Mu $/) {
             my $element-name = atkeyish($/, 'jsx_element_name').Str;
-            my $type = QAST::SVal.new(:value($element-name));
-            $/.make(QAST::Op.new(:op<call>, :name('&create-element'), $type));
+            $/.make(QAST::SVal.new(:value($element-name)));
         }
     }
 
