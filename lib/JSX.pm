@@ -8,25 +8,32 @@ sub EXPORT(|) {
         nqp::atkey(nqp::findmethod(h, 'hash')(h), k)
     }
 
+    sub atposish(Mu \h, \k) {
+        nqp::atpos(nqp::findmethod(h, 'list')(h), k)
+    }
+
     my role JSX::Grammar {
         rule term:sym<jsx> {
             jsx <jsx_element>
         }
 
         token jsx_element {
+            <jsx_closed_element> | <jsx_self_closing_element>
+        }
+
+        rule jsx_closed_element {
             <jsx_opening_element> <jsx_child>* <jsx_closing_element>
-            | <jsx_self_closing_element>
         }
 
-        token jsx_self_closing_element {
-            '<' <jsx_element_name> '/>'
+        rule jsx_self_closing_element {
+            '<' <jsx_element_name> <jsx_attribute>* '/>'
         }
 
-        token jsx_opening_element {
-            '<' <jsx_element_name> '>'
+        rule jsx_opening_element {
+            '<' <jsx_element_name> <jsx_attribute>* '>'
         }
 
-        token jsx_closing_element {
+        rule jsx_closing_element {
             '</' <jsx_element_name> '>'
         }
 
@@ -38,18 +45,17 @@ sub EXPORT(|) {
           <-[{}<>]>+
         }
 
-#
-#        token jsx_attributes {
-#          <jsx_attribute>+
-#        }
-#
-#
-#        token jsx_attribute_value {
-#          \" JSXDoubleStringCharacters<sub>opt</sub> \"
-#          \' JSXSingleStringCharacters<sub>opt</sub> \`
-#          `{` AssignmentExpression `}`
-#- JSXElement
-#        
+        token jsx_attribute {
+          <jsx_attribute_name> ['=' <jsx_attribute_value>]
+        }
+
+        token jsx_attribute_value {
+          '"' (<-["]>+) '"'
+        }
+
+        token jsx_attribute_name {
+            \w+
+        }
 
         token jsx_element_name {
             \w+
@@ -62,16 +68,11 @@ sub EXPORT(|) {
         }
 
         method jsx_element(Mu $/) {
-            my $type;
             if atkeyish($/, 'jsx_self_closing_element') {
-               $type = atkeyish($/, 'jsx_self_closing_element').ast;
-            } elsif atkeyish($/, 'jsx_opening_element') {
-               $type = atkeyish($/, 'jsx_opening_element').ast;
+               $/.make(atkeyish($/, 'jsx_self_closing_element').ast);
+            } elsif atkeyish($/, 'jsx_closed_element') {
+               $/.make(atkeyish($/, 'jsx_closed_element').ast);
             }
-
-            my $args = nqp::hllize(atkeyish($/, 'jsx_child')).map(*.ast);
-
-            $/.make(QAST::Op.new(:op<call>, :name('&create-element'), $type, |$args));
         }
 
         method jsx_child(Mu $/) {
@@ -88,12 +89,42 @@ sub EXPORT(|) {
 
         method jsx_opening_element(Mu $/) {
             my $element-name = atkeyish($/, 'jsx_element_name').Str;
-            $/.make(QAST::SVal.new(:value($element-name)));
+            my $type = QAST::SVal.new(:value($element-name));
+            my $attributes = nqp::hllize(atkeyish($/, 'jsx_attribute')).map(*.ast);
+
+            $/.make(QAST::Op.new(:op<call>, :name('&create-element'), $type, |$attributes));
+        }
+
+        method jsx_closed_element(Mu $/) {
+            my $element = atkeyish($/, 'jsx_opening_element').ast;
+
+            my $args = nqp::hllize(atkeyish($/, 'jsx_child')).map(*.ast);
+
+            for @$args -> $arg {
+                $element.push(nqp::decont($arg));
+            }
+
+            $/.make(atkeyish($/, 'jsx_opening_element').ast);
         }
 
         method jsx_self_closing_element(Mu $/) {
             my $element-name = atkeyish($/, 'jsx_element_name').Str;
-            $/.make(QAST::SVal.new(:value($element-name)));
+            my $type = QAST::SVal.new(:value($element-name));
+
+            my $attributes = nqp::hllize(atkeyish($/, 'jsx_attribute')).map(*.ast);
+
+            $/.make(QAST::Op.new(:op<call>, :name('&create-element'), $type, |$attributes));
+        }
+
+        method jsx_attribute(Mu $/) {
+            my $value = atkeyish($/, 'jsx_attribute_value').ast;
+            my $name = atkeyish($/, 'jsx_attribute_name').Str;
+            $value.named($name);
+            $/.make($value);
+        }
+
+        method jsx_attribute_value(Mu $/) {
+            $/.make(QAST::SVal.new(:value(atposish($/, 0))));
         }
     }
 
