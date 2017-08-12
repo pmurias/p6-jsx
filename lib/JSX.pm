@@ -49,9 +49,21 @@ sub EXPORT(|) {
           <jsx_attribute_name> ['=' <jsx_attribute_value>]
         }
 
-        token jsx_attribute_value {
-          '"' (<-["]>+) '"'
+        proto token jsx_attribute_value {*}
+
+        token jsx_attribute_value:sym<""> {
+            '"' (<-["]>+) '"'
         }
+        token jsx_attribute_value:sym<''> {
+            "'" (<-[']>+) "'"
+        }
+        token jsx_attribute_value:sym<jsx_element> {
+            <jsx_element>
+        }
+        token jsx_attribute_value:sym<EXPR> {
+            '{' <EXPR> '}'
+        }
+
 
         token jsx_attribute_name {
             \w+
@@ -92,7 +104,7 @@ sub EXPORT(|) {
             my $type = QAST::SVal.new(:value($element-name));
             my $attributes = nqp::hllize(atkeyish($/, 'jsx_attribute')).map(*.ast);
 
-            $/.make(QAST::Op.new(:op<call>, :name('&create-element'), $type, |$attributes));
+            $/.make(QAST::Op.new(:op<call>, :name('&create-element'), nqp::decont($type), |$attributes));
         }
 
         method jsx_closed_element(Mu $/) {
@@ -113,18 +125,30 @@ sub EXPORT(|) {
 
             my $attributes = nqp::hllize(atkeyish($/, 'jsx_attribute')).map(*.ast);
 
-            $/.make(QAST::Op.new(:op<call>, :name('&create-element'), $type, |$attributes));
+            $/.make(QAST::Op.new(:op<call>, :name('&create-element'), nqp::decont($type), |$attributes));
         }
 
         method jsx_attribute(Mu $/) {
             my $value = atkeyish($/, 'jsx_attribute_value').ast;
             my $name = atkeyish($/, 'jsx_attribute_name').Str;
             $value.named($name);
-            $/.make($value);
+            $/.make(nqp::decont($value));
         }
 
-        method jsx_attribute_value(Mu $/) {
+        method jsx_attribute_value:sym<''>(Mu $/) {
             $/.make(QAST::SVal.new(:value(atposish($/, 0))));
+        }
+
+        method jsx_attribute_value:sym<"">(Mu $/) {
+            $/.make(QAST::SVal.new(:value(atposish($/, 0))));
+        }
+
+        method jsx_attribute_value:sym<jsx_element>(Mu $/) {
+            $/.make(atkeyish($/, 'jsx_element').ast);
+        }
+
+        method jsx_attribute_value:sym<EXPR>(Mu $/) {
+            $/.make(atkeyish($/, 'EXPR').ast);
         }
     }
 
