@@ -21,24 +21,24 @@ sub EXPORT(|) {
             <jsx_closed_element> | <jsx_self_closing_element>
         }
 
-        rule jsx_closed_element {
+        token jsx_closed_element {
             <jsx_opening_element> <jsx_child>* <jsx_closing_element>
         }
 
-        rule jsx_self_closing_element {
-            '<' <jsx_element_name> <jsx_attribute>* '/>'
+        token jsx_self_closing_element {
+            '<' <.ws> <jsx_element_name> <.ws> <jsx_attribute>* '/' <.ws> '>'
         }
 
-        rule jsx_opening_element {
-            '<' <jsx_element_name> <jsx_attribute>* '>'
+        token jsx_opening_element {
+            '<' <.ws> <jsx_element_name> <.ws> <jsx_attribute>* '>'
         }
 
-        rule jsx_closing_element {
-            '</' <jsx_element_name> '>'
+        token jsx_closing_element {
+            '<' <.ws> '/' <.ws> <jsx_element_name> <.ws> '>'
         }
 
         token jsx_child {
-            <jsx_element> | <jsx_text>
+            <jsx_element> | <jsx_text> | '{' <.ws> <EXPR> '}'
         }
 
         token jsx_text {
@@ -46,7 +46,7 @@ sub EXPORT(|) {
         }
 
         token jsx_attribute {
-          <jsx_attribute_name> ['=' <jsx_attribute_value>]
+          <jsx_attribute_name> <.ws> ['=' <.ws> <jsx_attribute_value>] <.ws>
         }
 
         proto token jsx_attribute_value {*}
@@ -61,7 +61,7 @@ sub EXPORT(|) {
             <jsx_element>
         }
         token jsx_attribute_value:sym<EXPR> {
-            '{' <EXPR> '}'
+            '{' <.ws> <EXPR> '}'
         }
 
 
@@ -92,6 +92,8 @@ sub EXPORT(|) {
               $/.make(atkeyish($/, 'jsx_element').ast);
             } elsif atkeyish($/, 'jsx_text') {
               $/.make(atkeyish($/, 'jsx_text').ast);
+            } elsif atkeyish($/, 'EXPR') {
+              $/.make(atkeyish($/, 'EXPR').ast);
             }
         }
 

@@ -30,4 +30,15 @@ is-deeply jsx <span element=<span>attr</span>>content</span>, ['span', 'content'
 
 is-deeply jsx <span attr={123}/>, ['span', {attr => 123}], 'using an Perl 6 expression as attribute value';
 
+is-deeply jsx <span>{123}</span>, ['span', 123], 'using an Perl 6 expression as a child';
+
+is-deeply jsx <span><span>We</span> come in {'peace'}</span>, ['span', ['span', 'We'], ' come in ', 'peace'], 'whitespace between things';
+
+is-deeply jsx <span>     <img/>    </span>, ['span', '     ', ['img'], "    "], 'surrounding whitespace';
+
+is-deeply jsx < img attr1= "1"attr2 = "2"    attr3={ 3 } >{ 7 }< / img >, ['img', 7, {attr1 => "1", attr2 => "2", attr3 => 3}], 'whitespace with normal tag';
+
+is-deeply jsx < img attr1= "1"attr2 = "2"    attr3="3" / >, ['img', {attr1 => "1", attr2 => "2", attr3 => "3"}], 'whitespace with self-closing tag';
+
+
 done-testing;
